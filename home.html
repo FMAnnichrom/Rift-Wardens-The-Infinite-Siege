@@ -1,0 +1,2105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Rift Wardens: The Infinite Siege</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Roboto+Mono:wght@400;700&display=swap');
+
+        body {
+            background-color: #050505;
+            color: #e0e0e0;
+            font-family: 'Roboto Mono', monospace;
+            overflow: hidden;
+            touch-action: none;
+            user-select: none;
+        }
+
+        h1, h2, h3, .title-font {
+            font-family: 'Cinzel', serif;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: radial-gradient(circle at center, #1a1a1a 0%, #000000 100%);
+        }
+
+        canvas {
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
+            background-color: #0f1710; /* Dark forest green tint */
+            image-rendering: pixelated; /* Essential for the sprite look */
+        }
+
+        /* UI Overlays */
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 10;
+            transition: opacity 0.3s;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* --- ANIMATIONS --- */
+        @keyframes slideDown {
+            from { transform: translateY(-50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        @keyframes fadeInUp {
+            from { transform: translateY(30px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0px); }
+        }
+
+        @keyframes glow {
+            0% { text-shadow: 0 0 10px #eab308; }
+            50% { text-shadow: 0 0 20px #eab308, 0 0 30px #f59e0b; }
+            100% { text-shadow: 0 0 10px #eab308; }
+        }
+
+        @keyframes popIn {
+            0% { transform: scale(0.8); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        @keyframes godRays {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .anim-title { animation: slideDown 1s ease-out forwards, glow 3s infinite ease-in-out; }
+        .anim-subtitle { animation: slideDown 1s ease-out 0.3s forwards; opacity: 0; }
+        
+        .anim-btn-1 { animation: fadeInUp 0.6s ease-out 0.5s forwards; opacity: 0; }
+        .anim-btn-2 { animation: fadeInUp 0.6s ease-out 0.6s forwards; opacity: 0; }
+        .anim-btn-3 { animation: fadeInUp 0.6s ease-out 0.7s forwards; opacity: 0; }
+        .anim-btn-4 { animation: fadeInUp 0.6s ease-out 0.8s forwards; opacity: 0; }
+        
+        .anim-start { animation: fadeInUp 0.6s ease-out 1.2s forwards, float 3s ease-in-out infinite; opacity: 0; }
+
+        .pop-in { animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+
+        .victory-bg {
+            position: absolute;
+            width: 200vw;
+            height: 200vw;
+            background: conic-gradient(from 0deg, transparent 0%, rgba(234, 179, 8, 0.1) 10%, transparent 20%, rgba(234, 179, 8, 0.1) 30%, transparent 40%);
+            animation: godRays 20s linear infinite;
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        /* Card Styles */
+        .card-container {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            justify-content: center;
+            padding: 2rem;
+            max-width: 1200px;
+        }
+
+        .card {
+            width: 200px;
+            height: 300px;
+            background: #1a1a1a;
+            border: 2px solid #444;
+            border-radius: 8px;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s, background-color 0.2s;
+            position: relative;
+            overflow: hidden;
+            animation: fadeInUp 0.3s ease-out forwards;
+            opacity: 0; /* Handled by animation */
+        }
+
+        .card:nth-child(1) { animation-delay: 0.1s; }
+        .card:nth-child(2) { animation-delay: 0.2s; }
+        .card:nth-child(3) { animation-delay: 0.3s; }
+        .card:nth-child(4) { animation-delay: 0.4s; }
+        .card:nth-child(5) { animation-delay: 0.5s; }
+
+        .card:hover {
+            transform: translateY(-10px) scale(1.02);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+            z-index: 5;
+        }
+
+        .card:active {
+            transform: scale(0.95);
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+            background-color: #2a2a2a;
+        }
+
+        /* Rarities */
+        .rarity-common { border-color: #a0a0a0; box-shadow: 0 0 5px #a0a0a0 inset; }
+        .rarity-rare { border-color: #3b82f6; box-shadow: 0 0 5px #3b82f6 inset; }
+        .rarity-epic { border-color: #a855f7; box-shadow: 0 0 5px #a855f7 inset; }
+        .rarity-legendary { border-color: #eab308; box-shadow: 0 0 10px #eab308 inset; animation: pulse-gold 2s infinite; }
+        
+        /* 5th Slot Special Style */
+        .card.fate-slot {
+            border-color: #f59e0b;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2a1a00 100%);
+            box-shadow: 0 0 15px #f59e0b;
+        }
+
+        @keyframes pulse-gold {
+            0% { box-shadow: 0 0 10px #eab308 inset; }
+            50% { box-shadow: 0 0 20px #eab308 inset, 0 0 10px #eab308; }
+            100% { box-shadow: 0 0 10px #eab308 inset; }
+        }
+
+        .class-btn {
+            width: 200px;
+            padding: 1rem;
+            margin: 0.5rem;
+            border: 1px solid #444;
+            background: #222;
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: left;
+        }
+        .class-btn:hover { background: #333; border-color: #666; transform: scale(1.05); }
+        .class-btn.selected { border-color: #eab308; background: #2a200a; transform: scale(1.05); box-shadow: 0 0 15px rgba(234, 179, 8, 0.2); }
+
+        /* HUD */
+        #hud {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 1rem;
+            pointer-events: none;
+            display: flex;
+            justify-content: space-between;
+            z-index: 5;
+        }
+
+        #pauseBtn, #summonBtn {
+            pointer-events: auto;
+            cursor: pointer;
+            background: rgba(0,0,0,0.5);
+            border: 1px solid #666;
+            color: #ddd;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-family: 'Cinzel', serif;
+        }
+        #pauseBtn:hover, #summonBtn:hover { background: #444; }
+        
+        #summonBtn {
+            margin-top: 5px;
+            border-color: #a855f7;
+            color: #d8b4fe;
+            display: none; /* Hidden by default */
+        }
+        #summonBtn.visible { display: inline-block; }
+
+        /* Formation Controls */
+        #formationControls {
+            pointer-events: auto;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 5px;
+            border-radius: 5px;
+            border: 1px solid #a855f7;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 10px;
+        }
+        .form-btn {
+            font-size: 10px;
+            padding: 2px 6px;
+            margin: 2px;
+            background: #333;
+            color: #fff;
+            border: 1px solid #555;
+            cursor: pointer;
+        }
+        .form-btn:hover { background: #555; }
+        .form-btn.active { background: #a855f7; border-color: #fff; }
+
+        .bar-container {
+            background: #333;
+            height: 10px;
+            width: 200px;
+            margin-top: 5px;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        .bar-fill { height: 100%; transition: width 0.2s; }
+        .hp-fill { background: #ef4444; }
+        .xp-fill { background: #3b82f6; }
+        .shield-pip {
+            width: 15px; height: 15px; background: #0ea5e9; border-radius: 50%;
+            display: inline-block; margin-right: 5px; border: 2px solid #fff;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- HUD -->
+    <div id="hud" class="hidden">
+        <div class="flex flex-col gap-2">
+            <div>
+                <div class="text-sm font-bold text-red-400">HEALTH</div>
+                <div class="bar-container"><div id="hpBar" class="bar-fill hp-fill" style="width: 100%"></div></div>
+                <div id="shieldContainer" class="mt-1"></div>
+            </div>
+            <div>
+                <div class="text-sm font-bold text-blue-400">EXP <span id="lvlDisplay">LVL 1</span></div>
+                <div class="bar-container"><div id="xpBar" class="bar-fill xp-fill" style="width: 0%"></div></div>
+            </div>
+        </div>
+        <div class="text-right flex flex-col items-end">
+            <button id="pauseBtn" onclick="togglePause()">II PAUSE</button>
+            <button id="summonBtn" onclick="triggerManualSummon()">SUMMON SOULS (<span id="soulCount">0</span>)</button>
+            
+            <div id="formationControls" class="hidden">
+                <div class="text-[10px] text-purple-300 font-bold mb-1">FORMATION</div>
+                <div class="flex">
+                    <button class="form-btn active" onclick="setFormation('circle')">○</button>
+                    <button class="form-btn" onclick="setFormation('square')">□</button>
+                    <button class="form-btn" onclick="setFormation('triangle')">△</button>
+                </div>
+                <div class="flex mt-1">
+                    <button class="form-btn" onclick="adjustFormationSize(-10)">-</button>
+                    <span class="text-[10px] text-gray-300 mx-1">SIZE</span>
+                    <button class="form-btn" onclick="adjustFormationSize(10)">+</button>
+                </div>
+            </div>
+
+            <div class="text-2xl title-font text-yellow-500 mt-2" id="timerDisplay">00:00</div>
+            <div class="text-sm text-gray-400">Kill Count: <span id="killCount">0</span></div>
+            <div class="text-xs text-gray-500 mt-2" id="classDisplay">Arch-Magus</div>
+            <div id="minionCountDisplay" class="text-xs text-purple-400 hidden">Thralls: 0/5</div>
+        </div>
+    </div>
+
+    <!-- Start Screen -->
+    <div id="startScreen" class="overlay">
+        <h1 class="text-6xl text-yellow-500 mb-2 title-font tracking-widest text-center anim-title">RIFT WARDENS</h1>
+        <h2 class="text-2xl text-gray-400 mb-8 tracking-wider anim-subtitle">THE INFINITE SIEGE</h2>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+            <button class="class-btn selected anim-btn-1" onclick="selectClass('mage')">
+                <div class="font-bold text-blue-400 text-lg">Arch-Magus</div>
+                <div class="text-xs text-gray-400">Glass Cannon, Elemental Magic</div>
+                <div class="text-xs text-gray-500 mt-1">Ult: Cataclysm</div>
+            </button>
+            <button class="class-btn anim-btn-2" onclick="selectClass('tank')">
+                <div class="font-bold text-gray-300 text-lg">Iron Bastion</div>
+                <div class="text-xs text-gray-400">High HP, Damage Shield</div>
+                <div class="text-xs text-gray-500 mt-1">Passive: Aegis Plating</div>
+            </button>
+            <button class="class-btn anim-btn-3" onclick="selectClass('scout')">
+                <div class="font-bold text-green-400 text-lg">Swiftblade</div>
+                <div class="text-xs text-gray-400">Fast, Infinite Poison Stacks</div>
+                <div class="text-xs text-gray-500 mt-1">Passive: Viper's Edge</div>
+            </button>
+            <button class="class-btn anim-btn-4" onclick="selectClass('necro')">
+                <div class="font-bold text-purple-500 text-lg">Grave Lord</div>
+                <div class="text-xs text-gray-400">Summoner, Immortal Minions</div>
+                <div class="text-xs text-gray-500 mt-1">Passive: Eternal Servitude</div>
+            </button>
+        </div>
+
+        <button onclick="startGame()" class="px-8 py-3 bg-red-800 hover:bg-red-700 text-white font-bold rounded text-xl border border-red-500 transition-colors title-font anim-start">
+            ENTER THE RIFT
+        </button>
+        <p class="mt-4 text-xs text-gray-600 anim-subtitle">WASD / Arrows to Move • Mouse to Aim (Mage/Necro) • Auto-Attack</p>
+    </div>
+
+    <!-- Level Up Screen -->
+    <div id="levelUpScreen" class="overlay hidden">
+        <div class="pop-in flex flex-col items-center">
+            <h2 class="text-4xl text-yellow-400 title-font mb-2">LEVEL UP!</h2>
+            <p class="text-gray-400 mb-6">Choose your destiny</p>
+            <div id="cardsContainer" class="card-container">
+                <!-- Cards injected here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Pause Screen -->
+    <div id="pauseScreen" class="overlay hidden">
+        <div class="pop-in text-center bg-gray-900 p-8 rounded-lg border-2 border-gray-600">
+            <h2 class="text-5xl text-gray-300 title-font mb-6">PAUSED</h2>
+            <div class="flex flex-col gap-4">
+                <button onclick="togglePause()" class="px-6 py-2 bg-blue-700 hover:bg-blue-600 text-white rounded">RESUME</button>
+                <button id="toggleSummonBtn" onclick="toggleSummonMode()" class="px-6 py-2 bg-purple-700 hover:bg-purple-600 text-white rounded hidden">TOGGLE AUTO-SUMMON</button>
+                <button onclick="location.reload()" class="px-6 py-2 bg-red-800 hover:bg-red-700 text-white rounded">QUIT TO TITLE</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Over Screen -->
+    <div id="gameOverScreen" class="overlay hidden">
+        <div class="pop-in text-center">
+            <h2 class="text-5xl text-red-600 title-font mb-4">YOU DIED</h2>
+            <p class="text-xl text-gray-300 mb-8">Surived: <span id="deathTime">00:00</span></p>
+            <button onclick="location.reload()" class="px-6 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded">Try Again</button>
+        </div>
+    </div>
+
+     <!-- Victory Screen -->
+     <div id="victoryScreen" class="overlay hidden overflow-hidden">
+        <div class="victory-bg"></div>
+        <div class="pop-in text-center z-10">
+            <h2 class="text-6xl text-yellow-500 title-font mb-4 drop-shadow-lg">VICTORY</h2>
+            <p class="text-xl text-gray-300 mb-8">The Realm is Cleansed.</p>
+            <div class="flex gap-4 justify-center">
+                <button onclick="continueGame()" class="px-8 py-3 bg-green-700 hover:bg-green-600 text-white rounded font-bold border border-green-400">Continue (Endless)</button>
+                <button onclick="location.reload()" class="px-8 py-3 bg-red-700 hover:bg-red-600 text-white rounded font-bold border border-red-400">Quit</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+/**
+ * RIFT WARDENS - SINGLE FILE JS GAME ENGINE
+ */
+
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+// Game Constants
+const TILE_SIZE = 64;
+const WORLD_WIDTH = 2000;
+const WORLD_HEIGHT = 2000;
+const FPS = 60;
+
+// Sprite System Constants
+const SPRITE_SIZE = 16;
+const SPRITE_SCALE = 3; // 16x3 = 48px visual size
+const ANIM_SPEED_PLAYER = 10;
+const ANIM_SPEED_ENEMY = 20; // Slower animation for smooth bounce
+const GLOBAL_SPRITES = {};
+
+// Color Palettes for Classes
+const CLASS_PALETTES = {
+    mage: { robe: '#3b82f6', hat: '#1e3a8a', skin: '#fbc531', staff: '#8e44ad', wood: '#d35400' },
+    tank: { robe: '#64748b', hat: '#334155', skin: '#fbc531', staff: '#475569', wood: '#1e293b' }, // Metallic look
+    scout: { robe: '#22c55e', hat: '#14532d', skin: '#fbc531', staff: '#ca8a04', wood: '#713f12' }, // Ranger look
+    necro: { robe: '#1f2937', hat: '#581c87', skin: '#e5e7eb', staff: '#a855f7', wood: '#4c1d95' }  // Dark/Cultist look
+};
+
+// State Management
+let gameState = 'START'; // START, PLAYING, PAUSED, LEVEL_UP, GAME_OVER, VICTORY
+let selectedClassKey = 'mage';
+let lastTime = 0;
+let gameTime = 0;
+let spawnTimer = 0;
+let difficultyTimer = 0;
+let keys = {};
+let mouseX = 0;
+let mouseY = 0;
+let bossDefeated = false;
+let manualSummon = false; // Necro experimental feature
+
+// Camera
+const camera = { x: 0, y: 0 };
+
+// Entities
+let player;
+let enemies = [];
+let projectiles = [];
+let particles = [];
+let lootDrops = []; 
+let damageNumbers = [];
+let minions = []; 
+
+// Progression
+let level = 1;
+let xp = 0;
+let xpToNextLevel = 100;
+let killCount = 0;
+let oracleEyeUnlocked = false; 
+
+// Classes Configuration - REDUCED SPEEDS
+const CLASSES = {
+    mage: { name: "Arch-Magus", hp: 80, speed: 2.5, color: '#3b82f6', attackCooldown: 40, description: "Elemental glass cannon.", baseDmg: 15 },
+    tank: { name: "Iron Bastion", hp: 200, speed: 1.8, color: '#9ca3af', attackCooldown: 60, description: "Tanky with regenerating shield.", baseDmg: 35 },
+    scout: { name: "Swiftblade", hp: 70, speed: 3.5, color: '#22c55e', attackCooldown: 15, description: "Fast poison stacker.", baseDmg: 8 },
+    necro: { name: "Grave Lord", hp: 100, speed: 2.2, color: '#a855f7', attackCooldown: 50, description: "Summons undead army.", baseDmg: 10 }
+};
+
+// --- SPRITE GENERATION ---
+
+// 1. Wizard Generator (For Players)
+function generateWizardSprite(colors) {
+    const pCanvas = document.createElement('canvas');
+    pCanvas.width = SPRITE_SIZE * 4;
+    pCanvas.height = SPRITE_SIZE * 4;
+    const pCtx = pCanvas.getContext('2d');
+
+    for(let row = 0; row < 4; row++) { 
+        for(let col = 0; col < 4; col++) {
+            let cx = col * SPRITE_SIZE;
+            let cy = row * SPRITE_SIZE;
+            let bounce = (col === 1 || col === 3) ? 1 : 0; 
+
+            // Shadow
+            pCtx.fillStyle = 'rgba(0,0,0,0.3)';
+            pCtx.fillRect(cx + 4, cy + 14, 8, 2);
+            // Robe
+            pCtx.fillStyle = colors.robe;
+            pCtx.fillRect(cx + 4, cy + 9 - bounce, 8, 6); 
+            // Head
+            pCtx.fillStyle = colors.skin;
+            pCtx.fillRect(cx + 5, cy + 5 - bounce, 6, 5);
+            // Hat
+            pCtx.fillStyle = colors.hat;
+            pCtx.fillRect(cx + 2, cy + 4 - bounce, 12, 2);
+            pCtx.fillRect(cx + 4, cy + 1 - bounce, 8, 3);
+            pCtx.fillRect(cx + 6, cy - 1 - bounce, 4, 2);
+            pCtx.fillRect(cx + 7, cy - 2 - bounce, 2, 1);
+
+            // Directions
+            if (row === 0) { // Down
+                pCtx.fillStyle = '#000';
+                pCtx.fillRect(cx + 6, cy + 7 - bounce, 1, 1);
+                pCtx.fillRect(cx + 9, cy + 7 - bounce, 1, 1);
+                pCtx.fillStyle = '#fff'; // Beard
+                pCtx.fillRect(cx + 5, cy + 9 - bounce, 6, 2);
+                pCtx.fillRect(cx + 6, cy + 11 - bounce, 4, 1);
+            } else if (row === 3) { // Up
+                pCtx.fillStyle = colors.hat;
+                pCtx.fillRect(cx + 4, cy + 4 - bounce, 8, 7);
+                pCtx.fillStyle = colors.robe;
+                pCtx.fillRect(cx + 7, cy + 8 - bounce, 2, 6);
+            } else if (row === 1) { // Left
+                pCtx.fillStyle = colors.hat;
+                pCtx.fillRect(cx + 4, cy + 4 - bounce, 7, 2);
+                pCtx.fillStyle = '#000';
+                pCtx.fillRect(cx + 5, cy + 7 - bounce, 1, 1);
+                pCtx.fillStyle = '#fff';
+                pCtx.fillRect(cx + 4, cy + 9 - bounce, 3, 2);
+                pCtx.fillStyle = colors.wood; // Staff
+                pCtx.fillRect(cx + 8, cy + 6 - bounce, 1, 8);
+                pCtx.fillStyle = 'red'; 
+                pCtx.fillRect(cx + 7, cy + 5 - bounce, 3, 1);
+            } else if (row === 2) { // Right
+                pCtx.fillStyle = colors.hat;
+                pCtx.fillRect(cx + 5, cy + 4 - bounce, 7, 2);
+                pCtx.fillStyle = '#000';
+                pCtx.fillRect(cx + 10, cy + 7 - bounce, 1, 1);
+                pCtx.fillStyle = '#fff';
+                pCtx.fillRect(cx + 9, cy + 9 - bounce, 3, 2);
+                pCtx.fillStyle = colors.wood; // Staff
+                pCtx.fillRect(cx + 12, cy + 6 - bounce, 1, 8);
+                pCtx.fillStyle = 'red'; 
+                pCtx.fillRect(cx + 11, cy + 5 - bounce, 3, 1);
+            }
+
+            // Feet
+            pCtx.fillStyle = '#130f40';
+            if (col === 0 || col === 2) { 
+                pCtx.fillRect(cx + 5, cy + 15, 2, 1);
+                pCtx.fillRect(cx + 9, cy + 15, 2, 1);
+            } else if (col === 1) { 
+                pCtx.fillRect(cx + 4, cy + 14, 2, 2); 
+                pCtx.fillRect(cx + 10, cy + 15, 2, 1);
+            } else if (col === 3) { 
+                pCtx.fillRect(cx + 5, cy + 15, 2, 1);
+                pCtx.fillRect(cx + 10, cy + 14, 2, 2); 
+            }
+        }
+    }
+    const img = new Image();
+    img.src = pCanvas.toDataURL();
+    return img;
+}
+
+// 2. Golem Generator (For Treant)
+function generateGolemSprite(colors) {
+    const pCanvas = document.createElement('canvas');
+    pCanvas.width = SPRITE_SIZE * 4;
+    pCanvas.height = SPRITE_SIZE * 4;
+    const pCtx = pCanvas.getContext('2d');
+
+    for(let row = 0; row < 4; row++) {
+        for(let col = 0; col < 4; col++) {
+            let cx = col * SPRITE_SIZE;
+            let cy = row * SPRITE_SIZE;
+            let bounce = (col === 1 || col === 3) ? 1 : 0;
+
+            pCtx.fillStyle = 'rgba(0,0,0,0.3)';
+            pCtx.fillRect(cx + 1, cy + 14, 14, 2);
+
+            let ty = cy + 4 - bounce;
+            pCtx.fillStyle = colors.base;
+            pCtx.fillRect(cx + 2, ty, 12, 10);
+            pCtx.fillStyle = colors.dark;
+            pCtx.fillRect(cx + 12, ty, 2, 10);
+            pCtx.fillRect(cx + 2, ty + 8, 12, 2);
+            pCtx.fillStyle = colors.light;
+            pCtx.fillRect(cx + 4, ty - 3, 8, 3);
+            pCtx.fillStyle = colors.base;
+            pCtx.fillRect(cx + 4, ty, 8, 2);
+
+            if (row === 0) { // Down
+                pCtx.fillStyle = colors.light;
+                pCtx.fillRect(cx + 1, ty, 3, 6); 
+                pCtx.fillRect(cx + 12, ty, 3, 6); 
+                pCtx.fillStyle = colors.dark;
+                pCtx.fillRect(cx + 1, ty + 6, 3, 3);
+                pCtx.fillRect(cx + 12, ty + 6, 3, 3);
+                pCtx.fillStyle = colors.eyes;
+                pCtx.fillRect(cx + 5, ty + 1, 2, 1);
+                pCtx.fillRect(cx + 9, ty + 1, 2, 1);
+            } else if (row === 3) { // Up
+                pCtx.fillStyle = colors.light;
+                pCtx.fillRect(cx + 3, ty - 2, 10, 4);
+                pCtx.fillStyle = colors.moss;
+                pCtx.fillRect(cx + 4, ty + 3, 2, 2);
+                pCtx.fillRect(cx + 8, ty + 5, 3, 2);
+            } else if (row === 1) { // Left
+                pCtx.fillStyle = colors.light;
+                pCtx.fillRect(cx + 3, ty - 1, 7, 9);
+                pCtx.fillStyle = colors.dark;
+                pCtx.fillRect(cx + 3, ty + 8, 7, 2);
+                pCtx.fillStyle = colors.eyes;
+                pCtx.fillRect(cx + 2, ty + 1, 1, 1);
+            } else if (row === 2) { // Right
+                pCtx.fillStyle = colors.light;
+                pCtx.fillRect(cx + 6, ty - 1, 7, 9);
+                pCtx.fillStyle = colors.dark;
+                pCtx.fillRect(cx + 6, ty + 8, 7, 2);
+                pCtx.fillStyle = colors.eyes;
+                pCtx.fillRect(cx + 13, ty + 1, 1, 1);
+            }
+
+            pCtx.fillStyle = colors.dark;
+            if (col === 1) { pCtx.fillRect(cx + 2, cy + 13, 4, 3); pCtx.fillRect(cx + 11, cy + 12, 4, 2); } 
+            else if (col === 3) { pCtx.fillRect(cx + 2, cy + 12, 4, 2); pCtx.fillRect(cx + 11, cy + 13, 4, 3); } 
+            else { pCtx.fillRect(cx + 2, cy + 13, 4, 3); pCtx.fillRect(cx + 11, cy + 13, 4, 3); }
+        }
+    }
+    const img = new Image();
+    img.src = pCanvas.toDataURL();
+    return img;
+}
+
+// 3. Slime Generator (For Wolf, Spider, Minion)
+function generateSlimeSprite(colors) {
+    const pCanvas = document.createElement('canvas');
+    pCanvas.width = SPRITE_SIZE * 4;
+    pCanvas.height = SPRITE_SIZE * 4;
+    const pCtx = pCanvas.getContext('2d');
+
+    for(let row = 0; row < 4; row++) {
+        for(let col = 0; col < 4; col++) {
+            let cx = col * SPRITE_SIZE;
+            let cy = row * SPRITE_SIZE;
+            let w = 10, h = 10, ox = 3, oy = 6;
+
+            if (col === 1 || col === 3) { h = 12; w = 8; ox = 4; oy = 3; } 
+            else { h = 8; w = 12; ox = 2; oy = 8; }
+
+            pCtx.fillStyle = 'rgba(0,0,0,0.2)';
+            pCtx.fillRect(cx + 3, cy + 13, 10, 2);
+
+            pCtx.fillStyle = colors.outer;
+            pCtx.fillRect(cx + ox, cy + oy, w, h);
+            pCtx.fillStyle = colors.core;
+            pCtx.fillRect(cx + ox + 1, cy + oy + 1, w - 2, h - 2);
+            pCtx.fillStyle = colors.shine;
+            pCtx.fillRect(cx + ox + 2, cy + oy + 2, 1, 1);
+
+            if (row !== 3) { // Not Up
+                pCtx.fillStyle = colors.eye;
+                let eyeY = cy + oy + (h/2) - 1;
+                if(row === 0) {
+                    pCtx.fillRect(cx + ox + 2, eyeY, 1, 2);
+                    pCtx.fillRect(cx + ox + w - 3, eyeY, 1, 2);
+                } else if (row === 1) {
+                    pCtx.fillRect(cx + ox + 1, eyeY, 1, 2);
+                } else if (row === 2) {
+                    pCtx.fillRect(cx + ox + w - 2, eyeY, 1, 2);
+                }
+            }
+        }
+    }
+    const img = new Image();
+    img.src = pCanvas.toDataURL();
+    return img;
+}
+
+// 4. Dragon Generator (For Boss)
+function generateDragonSprite(colors) {
+    // Dragons are 32x32 sprites
+    const pCanvas = document.createElement('canvas');
+    pCanvas.width = 32 * 4;
+    pCanvas.height = 32 * 4;
+    const pCtx = pCanvas.getContext('2d');
+
+    for(let row = 0; row < 4; row++) {
+        for(let col = 0; col < 4; col++) {
+            let cx = col * 32;
+            let cy = row * 32;
+            let hover = (col === 1 || col === 3) ? -2 : 0;
+            let wingFlap = (col === 1 || col === 3) ? 1 : 0; 
+
+            pCtx.fillStyle = 'rgba(0,0,0,0.3)';
+            pCtx.fillRect(cx + 6, cy + 26, 20, 4);
+
+            let dy = cy + 4 + hover;
+
+            // Wings
+            pCtx.fillStyle = colors.darkRed;
+            if (row === 0 || row === 3) {
+                if (wingFlap === 0) { 
+                    pCtx.fillRect(cx + 0, dy + 2, 11, 14); 
+                    pCtx.fillRect(cx + 21, dy + 2, 11, 14);
+                } else { 
+                    pCtx.fillRect(cx + 2, dy + 6, 9, 10);
+                    pCtx.fillRect(cx + 21, dy + 6, 9, 10);
+                }
+            }
+
+            // Body
+            pCtx.fillStyle = colors.red;
+            pCtx.fillRect(cx + 10, dy + 8, 12, 14);
+            pCtx.fillStyle = colors.belly;
+            pCtx.fillRect(cx + 12, dy + 10, 8, 10);
+
+            // Head (Neck)
+            pCtx.fillStyle = colors.red;
+            pCtx.fillRect(cx + 11, dy + 2, 10, 6);
+            pCtx.fillStyle = colors.horn;
+            pCtx.fillRect(cx + 10, dy, 2, 4);
+            pCtx.fillRect(cx + 20, dy, 2, 4);
+
+            // Tail
+            if (row !== 0) {
+                pCtx.fillStyle = colors.red;
+                if (wingFlap === 0) pCtx.fillRect(cx + 14, dy + 20, 4, 8); 
+                else pCtx.fillRect(cx + 16, dy + 20, 4, 6); 
+            }
+
+            // Direction Details
+            if (row === 0) { // Down
+                pCtx.fillStyle = colors.red;
+                pCtx.fillRect(cx + 10, dy + 4, 12, 8); 
+                pCtx.fillStyle = colors.black;
+                pCtx.fillRect(cx + 13, dy + 9, 2, 2);
+                pCtx.fillRect(cx + 17, dy + 9, 2, 2);
+                pCtx.fillStyle = colors.eye;
+                pCtx.fillRect(cx + 11, dy + 5, 3, 3);
+                pCtx.fillRect(cx + 18, dy + 5, 3, 3);
+            } else if (row === 3) { // Up
+                pCtx.fillStyle = colors.darkRed;
+                pCtx.fillRect(cx + 15, dy + 4, 2, 16); 
+                pCtx.fillStyle = colors.red;
+                pCtx.fillRect(cx + 11, dy + 2, 10, 8);
+            } else if (row === 1 || row === 2) { // Side
+                pCtx.fillStyle = colors.red;
+                pCtx.fillRect(cx + 10, dy + 6, 12, 14);
+                if (row === 1) { // Left
+                    pCtx.fillRect(cx + 6, dy + 4, 8, 6);
+                    pCtx.fillStyle = colors.eye;
+                    pCtx.fillRect(cx + 10, dy + 5, 3, 3);
+                    pCtx.fillStyle = colors.darkRed;
+                    pCtx.fillRect(cx + 14, dy + 2, 12, 16);
+                } else { // Right
+                    pCtx.fillRect(cx + 18, dy + 4, 8, 6);
+                    pCtx.fillStyle = colors.eye;
+                    pCtx.fillRect(cx + 19, dy + 5, 3, 3);
+                    pCtx.fillStyle = colors.darkRed;
+                    pCtx.fillRect(cx + 6, dy + 2, 12, 16);
+                }
+            }
+            pCtx.fillStyle = colors.horn;
+            pCtx.fillRect(cx + 10, dy + 20, 3, 2);
+            pCtx.fillRect(cx + 19, dy + 20, 3, 2);
+        }
+    }
+    const img = new Image();
+    img.src = pCanvas.toDataURL();
+    return img;
+}
+
+// Generate Player Sprites
+Object.keys(CLASS_PALETTES).forEach(key => {
+    GLOBAL_SPRITES[key] = generateWizardSprite(CLASS_PALETTES[key]);
+});
+
+// Generate Enemy Sprites
+GLOBAL_SPRITES.slime_green = generateSlimeSprite({ core: '#badc58', outer: '#6ab04c', shine: '#ffffff', eye: '#2d3436' });
+GLOBAL_SPRITES.slime_red = generateSlimeSprite({ core: '#ff7979', outer: '#eb4d4b', shine: '#ffffff', eye: '#2d3436' });
+GLOBAL_SPRITES.golem = generateGolemSprite({ base: '#7f8c8d', light: '#bdc3c7', dark: '#2c3e50', eyes: '#e74c3c', moss: '#2ecc71', shadow: 'rgba(0,0,0,0.3)' });
+GLOBAL_SPRITES.dragon = generateDragonSprite({ red: '#c0392b', darkRed: '#922b21', belly: '#f39c12', horn: '#ecf0f1', eye: '#f1c40f', black: '#000000' });
+
+// Generate Necro Minion Sprites
+GLOBAL_SPRITES.minion_slime = generateSlimeSprite({ core: '#a29bfe', outer: '#6c5ce7', shine: '#ffffff', eye: '#dfe6e9' });
+GLOBAL_SPRITES.minion_dragon = generateDragonSprite({ red: '#6c5ce7', darkRed: '#4834d4', belly: '#a29bfe', horn: '#dfe6e9', eye: '#00cec9', black: '#2d3436' }); // Ghost Dragon
+
+// --- INPUT HANDLING ---
+
+window.addEventListener('resize', resizeCanvas);
+function resizeCanvas() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    // Critical for pixel art
+    ctx.imageSmoothingEnabled = false;
+}
+resizeCanvas();
+
+window.addEventListener('keydown', e => {
+    keys[e.code] = true;
+    if (e.code === 'Escape') togglePause();
+    // Manual Summon Trigger
+    if (e.code === 'Space' && manualSummon) triggerManualSummon();
+});
+window.addEventListener('keyup', e => keys[e.code] = false);
+window.addEventListener('mousemove', e => {
+    const rect = canvas.getBoundingClientRect();
+    mouseX = e.clientX - rect.left;
+    mouseY = e.clientY - rect.top;
+});
+
+// UI Functions
+function selectClass(key) {
+    selectedClassKey = key;
+    document.querySelectorAll('.class-btn').forEach(btn => btn.classList.remove('selected'));
+    document.querySelector(`button[onclick="selectClass('${key}')"]`).classList.add('selected');
+}
+
+function startGame() {
+    document.getElementById('startScreen').classList.add('hidden');
+    document.getElementById('hud').classList.remove('hidden');
+    
+    // Ensure pixelated scaling is active
+    ctx.imageSmoothingEnabled = false;
+
+    // Init Player
+    const config = CLASSES[selectedClassKey];
+    player = new Player(config);
+    
+    // Reset World
+    enemies = [];
+    projectiles = [];
+    lootDrops = [];
+    minions = [];
+    particles = [];
+    damageNumbers = [];
+    gameTime = 0;
+    level = 1;
+    xp = 0;
+    xpToNextLevel = 100;
+    killCount = 0;
+    oracleEyeUnlocked = false; 
+    bossDefeated = false;
+    manualSummon = false; // Default Auto
+
+    if (selectedClassKey === 'necro') {
+        document.getElementById('minionCountDisplay').classList.remove('hidden');
+        document.getElementById('toggleSummonBtn').classList.remove('hidden');
+        // Spawn 5 Initial Minions for Necro (Slimes)
+        for(let i=0; i<5; i++) {
+            minions.push(new Minion(
+                player.x + (Math.random() - 0.5) * 50, 
+                player.y + (Math.random() - 0.5) * 50, 
+                player,
+                false, 
+                0,
+                'slime_minion'
+            ));
+        }
+    } else {
+        document.getElementById('minionCountDisplay').classList.add('hidden');
+        document.getElementById('toggleSummonBtn').classList.add('hidden');
+    }
+
+    gameState = 'PLAYING';
+    requestAnimationFrame(gameLoop);
+}
+
+function togglePause() {
+    if (gameState === 'PLAYING') {
+        gameState = 'PAUSED';
+        document.getElementById('pauseScreen').classList.remove('hidden');
+    } else if (gameState === 'PAUSED') {
+        gameState = 'PLAYING';
+        document.getElementById('pauseScreen').classList.add('hidden');
+        lastTime = performance.now();
+        requestAnimationFrame(gameLoop);
+    }
+}
+
+function toggleSummonMode() {
+    manualSummon = !manualSummon;
+    const btn = document.getElementById('toggleSummonBtn');
+    const hudBtn = document.getElementById('summonBtn');
+    
+    if (manualSummon) {
+        btn.innerText = "MODE: MANUAL SUMMON";
+        hudBtn.classList.add('visible');
+    } else {
+        btn.innerText = "MODE: AUTO SUMMON";
+        hudBtn.classList.remove('visible');
+        triggerManualSummon();
+    }
+}
+
+function triggerManualSummon() {
+    if (player.pendingSummons.length === 0) return;
+    
+    // Summon all pending
+    while(player.pendingSummons.length > 0 && minions.length < player.commandLimit) {
+        const soul = player.pendingSummons.shift();
+        spawnMinionFromSoul(soul);
+    }
+    
+    updateSoulUI();
+}
+
+function spawnMinionFromSoul(soul) {
+    // If cap reached, remove oldest non-boss
+    if (minions.length >= player.commandLimit) {
+        const nonBossIndex = minions.findIndex(m => !m.isBoss);
+        if (nonBossIndex !== -1) minions.splice(nonBossIndex, 1);
+        else return; // All bosses? Rare case.
+    }
+    
+    let type = 'slime_minion';
+    if (soul.type === 'treant') type = 'golem';
+    
+    // SPAWN LOCATION: Using soul.x and soul.y which records death location
+    minions.push(new Minion(soul.x, soul.y, player, soul.isBoss, soul.maxHp, type));
+}
+
+function updateSoulUI() {
+    document.getElementById('soulCount').innerText = player.pendingSummons.length;
+}
+
+function setFormation(shape) {
+    player.formationShape = shape;
+    document.querySelectorAll('.form-btn').forEach(b => b.classList.remove('active'));
+    event.target.classList.add('active');
+}
+
+function adjustFormationSize(val) {
+    player.formationRadius = Math.max(50, Math.min(300, player.formationRadius + val));
+}
+
+function continueGame() {
+    document.getElementById('victoryScreen').classList.add('hidden');
+    gameState = 'PLAYING';
+    bossDefeated = true; 
+    lastTime = performance.now();
+    requestAnimationFrame(gameLoop);
+}
+
+// --- GAME OBJECTS ---
+
+class Player {
+    constructor(config) {
+        this.x = WORLD_WIDTH / 2;
+        this.y = WORLD_HEIGHT / 2;
+        this.classKey = selectedClassKey;
+        this.maxHp = config.hp;
+        this.hp = config.hp;
+        this.speed = config.speed;
+        this.baseColor = config.color;
+        this.size = 20; // Hitbox radius
+        this.cooldown = 0;
+        this.maxCooldown = config.attackCooldown;
+        this.damage = config.baseDmg;
+        this.pickupRange = 100;
+        
+        // Sprite Animation State
+        this.frameX = 0;
+        this.frameY = 0; // 0:Down, 1:Left, 2:Right, 3:Up
+        this.animTimer = 0;
+        this.isMoving = false;
+
+        // Stats
+        this.projectileCount = 1;
+        this.pierce = 0;
+        this.areaSize = 1;
+        this.critChance = 0.05;
+        this.homing = false; 
+
+        // Class Specifics
+        this.shieldLayers = 0;
+        this.maxShieldLayers = 2; // Tank Base
+        this.shieldRegenTimer = 0;
+        this.shieldRegenMax = 480; 
+
+        this.elements = { fire: 0, ice: 0, air: 0 };
+        this.cataclysmUnlocked = false;
+
+        this.commandLimit = 10; 
+        this.minionDmgMod = 1;
+        this.minionHpMod = 1;
+        this.pendingSummons = []; 
+        this.formationShape = 'circle';
+        this.formationRadius = 100;
+
+        this.poisonTickRate = 60; 
+    }
+
+    update() {
+        // Movement
+        let dx = 0;
+        let dy = 0;
+        if (keys['KeyW'] || keys['ArrowUp']) dy = -1;
+        if (keys['KeyS'] || keys['ArrowDown']) dy = 1;
+        if (keys['KeyA'] || keys['ArrowLeft']) dx = -1;
+        if (keys['KeyD'] || keys['ArrowRight']) dx = 1;
+
+        this.isMoving = (dx !== 0 || dy !== 0);
+
+        if (this.isMoving) {
+            const mag = Math.sqrt(dx*dx + dy*dy);
+            this.x += (dx / mag) * this.speed;
+            this.y += (dy / mag) * this.speed;
+
+            // Determine Facing Direction
+            if (dy > 0) this.frameY = 0; // Down
+            else if (dy < 0) this.frameY = 3; // Up
+            else if (dx < 0) this.frameY = 1; // Left
+            else if (dx > 0) this.frameY = 2; // Right
+
+            // Animation Logic
+            this.animTimer++;
+            if (this.animTimer > ANIM_SPEED_PLAYER) {
+                this.frameX = (this.frameX + 1) % 4; // 4 frames per row
+                this.animTimer = 0;
+            }
+        } else {
+            this.frameX = 0; // Reset to idle frame
+            this.animTimer = 0;
+        }
+
+        // Bounds
+        this.x = Math.max(20, Math.min(WORLD_WIDTH - 20, this.x));
+        this.y = Math.max(20, Math.min(WORLD_HEIGHT - 20, this.y));
+
+        // Camera Follow
+        camera.x = this.x - canvas.width / 2;
+        camera.y = this.y - canvas.height / 2;
+
+        // Tank Shield Regen
+        if (this.classKey === 'tank' && this.shieldLayers < this.maxShieldLayers) {
+            this.shieldRegenTimer++;
+            if (this.shieldRegenTimer >= this.shieldRegenMax) {
+                this.shieldLayers++;
+                this.shieldRegenTimer = 0;
+                createFloatingText("SHIELD UP", this.x, this.y - 30, "#0ea5e9");
+            }
+        }
+
+        // Auto Attack
+        if (this.cooldown > 0) this.cooldown--;
+        else {
+            this.attack();
+        }
+    }
+
+    attack() {
+        // Find nearest enemy
+        let nearest = null;
+        let minDist = 600; // Range
+
+        for (let e of enemies) {
+            let d = Math.hypot(e.x - this.x, e.y - this.y);
+            if (d < minDist) {
+                minDist = d;
+                nearest = e;
+            }
+        }
+
+        if (nearest || this.classKey === 'tank') {
+            this.cooldown = this.maxCooldown;
+
+            if (this.classKey === 'mage' || this.classKey === 'scout' || this.classKey === 'necro') {
+                if (!nearest && !this.homing) return; 
+                
+                // Determine angle
+                let targetX = nearest ? nearest.x : this.x + 100;
+                let targetY = nearest ? nearest.y : this.y;
+                
+                // Fire Projectile
+                for (let i = 0; i < this.projectileCount; i++) {
+                    let angle = Math.atan2(targetY - this.y, targetX - this.x);
+                    // Spread
+                    if (this.projectileCount > 1) {
+                        angle += (i - this.projectileCount/2) * 0.2;
+                    }
+
+                    projectiles.push(new Projectile(
+                        this.x, this.y, 
+                        Math.cos(angle), Math.sin(angle), 
+                        this.damage, 
+                        this.classKey, 
+                        this
+                    ));
+                }
+            } else if (this.classKey === 'tank') {
+                // AoE Hammer Swing
+                createEffect('shockwave', this.x, this.y, 100 * this.areaSize);
+                for (let e of enemies) {
+                    let d = Math.hypot(e.x - this.x, e.y - this.y);
+                    if (d < 100 * this.areaSize) {
+                        e.takeDamage(this.damage, 'physical');
+                        // Knockback
+                        let angle = Math.atan2(e.y - this.y, e.x - this.x);
+                        e.x += Math.cos(angle) * 50;
+                        e.y += Math.sin(angle) * 50;
+                    }
+                }
+            }
+        }
+    }
+
+    takeDamage(amount) {
+        if (this.classKey === 'tank' && this.shieldLayers > 0) {
+            this.shieldLayers--;
+            this.shieldRegenTimer = 0;
+            createEffect('shieldBreak', this.x, this.y);
+            createFloatingText("BLOCKED", this.x, this.y - 20, "#fff");
+            return;
+        }
+
+        this.hp -= amount;
+        createFloatingText(`-${amount}`, this.x, this.y - 20, "#ff0000");
+        if (this.hp <= 0) {
+            endGame();
+        }
+    }
+
+    heal(amount) {
+        this.hp = Math.min(this.hp + amount, this.maxHp);
+        createFloatingText(`+${amount}`, this.x, this.y - 20, "#22c55e");
+        // Healing Visual
+        for(let i=0; i<10; i++) {
+            particles.push({
+                type: 'heal',
+                x: this.x + (Math.random() - 0.5) * 30,
+                y: this.y + (Math.random() - 0.5) * 10,
+                dy: -1 - Math.random() * 2,
+                life: 40
+            });
+        }
+    }
+
+    draw(ctx) {
+        // Render Sprite
+        let img = GLOBAL_SPRITES[this.classKey];
+        if (img) {
+             let sx = this.frameX * SPRITE_SIZE;
+             let sy = this.frameY * SPRITE_SIZE;
+             let drawSize = SPRITE_SIZE * SPRITE_SCALE;
+             
+             ctx.drawImage(
+                 img, 
+                 sx, sy, SPRITE_SIZE, SPRITE_SIZE, 
+                 this.x - drawSize/2, 
+                 this.y - drawSize/2, 
+                 drawSize, drawSize
+             );
+        } else {
+            ctx.fillStyle = this.baseColor;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.size, 0, Math.PI*2);
+            ctx.fill();
+        }
+
+        // Tank Shield Visual (Overlay on sprite)
+        if (this.classKey === 'tank') {
+            for(let i=0; i<this.shieldLayers; i++) {
+                ctx.strokeStyle = '#0ea5e9';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size + 5 + (i*4), 0, Math.PI * 2);
+                ctx.stroke();
+            }
+        }
+
+        // Level Up Aura
+        if (this.cataclysmUnlocked) {
+            ctx.strokeStyle = '#f59e0b';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.size + 10, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+    }
+}
+
+class Minion {
+    constructor(x, y, owner, isBoss = false, inheritedHp = 0, type = 'slime_minion') {
+        this.x = x;
+        this.y = y;
+        this.owner = owner;
+        this.isBoss = isBoss;
+        this.type = type; // 'slime_minion', 'golem', 'dragon'
+        
+        // Sprite props
+        this.frameX = 0;
+        this.frameY = 0;
+        this.animTimer = 0;
+        this.markedForDeletion = false;
+        
+        if (isBoss) {
+            this.hp = 2000 * owner.minionHpMod; 
+            this.maxHp = this.hp;
+            this.damage = 100 * owner.minionDmgMod;
+            this.speed = 3.0; // Slowed Boss Minion
+            this.size = 32; // Dragon size
+            this.cooldownMax = 20;
+        } else {
+            // UPDATED: Health = 2x inherited Enemy Health
+            let base = inheritedHp > 0 ? inheritedHp : 70;
+            this.hp = base * 2 * owner.minionHpMod; 
+            this.maxHp = this.hp;
+            this.damage = 10 * owner.minionDmgMod;
+            this.speed = 2.8; 
+            this.size = 8;
+            this.cooldownMax = 40;
+        }
+
+        this.target = null;
+        this.cooldown = 0;
+    }
+
+    takeDamage(amount) {
+        this.hp -= amount;
+        createFloatingText(Math.floor(amount), this.x, this.y - 10, '#a855f7');
+        if (this.hp <= 0) {
+            this.markedForDeletion = true;
+        }
+    }
+
+    update(index = 0, total = 1) {
+        // Calculate Formation Position
+        const radius = this.owner.formationRadius; 
+        const orbitSpeed = gameTime * 0.01; 
+        
+        let formX = this.owner.x;
+        let formY = this.owner.y;
+
+        if (this.owner.formationShape === 'circle') {
+            const angle = (index / (total || 1)) * Math.PI * 2 + orbitSpeed;
+            formX += Math.cos(angle) * radius;
+            formY += Math.sin(angle) * radius;
+        } 
+        else if (this.owner.formationShape === 'square') {
+            const perimeter = radius * 8;
+            const pos = ((index / total + (gameTime * 0.001)) % 1) * 4; // 0 to 4
+            if (pos < 1) { // Top
+                formX += -radius + (pos * 2 * radius);
+                formY += -radius;
+            } else if (pos < 2) { // Right
+                formX += radius;
+                formY += -radius + ((pos - 1) * 2 * radius);
+            } else if (pos < 3) { // Bottom
+                formX += radius - ((pos - 2) * 2 * radius);
+                formY += radius;
+            } else { // Left
+                formX += -radius;
+                formY += radius - ((pos - 3) * 2 * radius);
+            }
+        }
+        else if (this.owner.formationShape === 'triangle') {
+            const pos = ((index / total + (gameTime * 0.001)) % 1) * 3; // 0 to 3
+            // Vertices: Top(0, -r), BotRight(r*0.866, r*0.5), BotLeft(-r*0.866, r*0.5)
+            const h = radius * 0.866;
+            if (pos < 1) { // Right Edge
+                formX += (pos * h);
+                formY += -radius + (pos * 1.5 * radius);
+            } else if (pos < 2) { // Bottom Edge
+                formX += h - ((pos - 1) * 2 * h);
+                formY += 0.5 * radius;
+            } else { // Left Edge
+                formX += -h + ((pos - 2) * h);
+                formY += 0.5 * radius - ((pos - 2) * 1.5 * radius);
+            }
+        }
+
+        // Check leash distance to player
+        let distToPlayer = Math.hypot(this.owner.x - this.x, this.owner.y - this.y);
+        
+        // Strict Leash: If too far from player, ignore enemies and run to formation
+        if (distToPlayer > 300) {
+            this.target = null;
+        } 
+        // Find target if idle
+        else if (!this.target) {
+            let minDist = 200; // Reduced aggro range to keep them closer
+            for (let e of enemies) {
+                let d = Math.hypot(e.x - this.x, e.y - this.y);
+                if (d < minDist) {
+                    minDist = d;
+                    this.target = e;
+                }
+            }
+        }
+
+        let moveX = 0, moveY = 0;
+
+        if (this.target) {
+            if (this.target.markedForDeletion) {
+                this.target = null;
+                return;
+            }
+
+            let angle = Math.atan2(this.target.y - this.y, this.target.x - this.x);
+            moveX = Math.cos(angle) * this.speed;
+            moveY = Math.sin(angle) * this.speed;
+
+            this.x += moveX;
+            this.y += moveY;
+
+            let dToTarget = Math.hypot(this.target.x - this.x, this.target.y - this.y);
+            let range = this.isBoss ? 40 : 20;
+            if (dToTarget < range && this.cooldown <= 0) {
+                this.target.takeDamage(this.damage, 'minion');
+                if (this.isBoss) createEffect('shockwave', this.x, this.y, 50);
+                this.cooldown = this.cooldownMax;
+            }
+        } else {
+            // Move to Ring Formation
+            let distToForm = Math.hypot(formX - this.x, formY - this.y);
+            if (distToForm > 5) {
+                let angle = Math.atan2(formY - this.y, formX - this.x);
+                // Move fast to get back in formation
+                moveX = Math.cos(angle) * (this.speed * 1.5);
+                moveY = Math.sin(angle) * (this.speed * 1.5);
+                this.x += moveX;
+                this.y += moveY;
+            }
+        }
+
+        // Animation Logic
+        if (moveY > 0) this.frameY = 0; // Down
+        else if (moveY < 0) this.frameY = 3; // Up
+        else if (moveX < 0) this.frameY = 1; // Left
+        else if (moveX > 0) this.frameY = 2; // Right
+
+        this.animTimer++;
+        if(this.animTimer > ANIM_SPEED_ENEMY) { // Slower minion animation
+            this.frameX = (this.frameX + 1) % 4;
+            this.animTimer = 0;
+        }
+
+        if (this.cooldown > 0) this.cooldown--;
+    }
+
+    draw(ctx) {
+        let img = null;
+        if (this.isBoss) img = GLOBAL_SPRITES.minion_dragon;
+        else if (this.type === 'golem') img = GLOBAL_SPRITES.golem; // Reuse Golem but maybe needs tint? Golems are friendly now
+        else img = GLOBAL_SPRITES.minion_slime;
+
+        let sSize = this.isBoss ? 32 : 16;
+        let scale = SPRITE_SCALE;
+        
+        if (img) {
+             let sx = this.frameX * sSize;
+             let sy = this.frameY * sSize;
+             let drawSize = sSize * scale;
+             
+             ctx.drawImage(
+                 img, 
+                 sx, sy, sSize, sSize, 
+                 this.x - drawSize/2, 
+                 this.y - drawSize/2, 
+                 drawSize, drawSize
+             );
+        }
+        
+        // HP Bar
+        if(this.hp < this.maxHp) {
+            ctx.fillStyle = '#000';
+            ctx.fillRect(this.x - 10, this.y - 30, 20, 4);
+            ctx.fillStyle = '#a855f7';
+            ctx.fillRect(this.x - 10, this.y - 30, 20 * (this.hp/this.maxHp), 4);
+        }
+    }
+}
+
+class Enemy {
+    constructor(type, x, y) {
+        if (x !== undefined && y !== undefined) {
+             this.x = x;
+             this.y = y;
+        } else {
+            // Random edge spawn if not defined
+            if (Math.random() < 0.5) {
+                this.x = Math.random() < 0.5 ? camera.x - 50 : camera.x + canvas.width + 50;
+                this.y = camera.y + Math.random() * canvas.height;
+            } else {
+                this.x = camera.x + Math.random() * canvas.width;
+                this.y = Math.random() < 0.5 ? camera.y - 50 : camera.y + canvas.height + 50;
+            }
+        }
+
+        this.type = type;
+        this.poisonStacks = 0;
+        this.poisonTimer = 0;
+        
+        // Animation
+        this.frameX = 0;
+        this.frameY = 0;
+        this.animTimer = 0;
+        this.animSpeed = ANIM_SPEED_ENEMY; // Slower animation
+        
+        // REDUCED ENEMY SPEEDS for "Slow Burn"
+        if (type === 'wolf') {
+            this.hp = 25 + (level * 2);
+            this.maxHp = this.hp;
+            this.speed = 1.0 + (Math.random() * 0.3); 
+            this.size = 12;
+            this.xp = 10;
+        } else if (type === 'spider') {
+            this.hp = 15 + (level * 1.5);
+            this.maxHp = this.hp;
+            this.speed = 0.8; 
+            this.size = 10;
+            this.xp = 8;
+        } else if (type === 'treant') {
+            this.hp = 60 + (level * 5);
+            this.maxHp = this.hp;
+            this.speed = 0.4; 
+            this.size = 18;
+            this.xp = 25;
+        } else if (type === 'boss') {
+            this.hp = 5000 + (level * 100);
+            this.maxHp = this.hp;
+            this.speed = 0.6; 
+            this.size = 60;
+            this.xp = 1000;
+        }
+    }
+
+    update() {
+        let angle = Math.atan2(player.y - this.y, player.x - this.x);
+        let moveX = Math.cos(angle) * this.speed;
+        let moveY = Math.sin(angle) * this.speed;
+        
+        this.x += moveX;
+        this.y += moveY;
+
+        // Animation Direction
+        if (Math.abs(moveX) > Math.abs(moveY)) {
+            this.frameY = moveX > 0 ? 2 : 1; // Right : Left
+        } else {
+            this.frameY = moveY > 0 ? 0 : 3; // Down : Up
+        }
+        
+        this.animTimer++;
+        if(this.animTimer > this.animSpeed) {
+            this.frameX = (this.frameX + 1) % 4;
+            this.animTimer = 0;
+        }
+
+        // Interaction with Player
+        let dist = Math.hypot(player.x - this.x, player.y - this.y);
+        if (dist < player.size + 20) { 
+            if (player.cooldown % 30 === 0) { 
+                player.takeDamage(5); 
+            }
+        }
+
+        // UPDATED: Interaction with Minions
+        // Enemies damage minions on contact
+        for (let m of minions) {
+            let distM = Math.hypot(m.x - this.x, m.y - this.y);
+            if (distM < 30) { // Overlap
+                // Debounce damage rate
+                if (gameTime % 30 === 0) {
+                    m.takeDamage(5); // Basic Enemy Damage
+                }
+            }
+        }
+
+        if (this.poisonStacks > 0) {
+            this.poisonTimer++;
+            let tickRate = player.classKey === 'scout' ? player.poisonTickRate : 60;
+            if (this.poisonTimer >= tickRate) {
+                let dmg = this.poisonStacks * 5;
+                this.takeDamage(dmg, 'poison');
+                this.poisonTimer = 0;
+            }
+        }
+    }
+
+    takeDamage(amount, source) {
+        this.hp -= amount;
+        
+        let color = '#fff';
+        if (source === 'poison') color = '#22c55e';
+        if (source === 'minion') color = '#a855f7';
+        
+        createFloatingText(Math.floor(amount), this.x, this.y - 20, color);
+
+        if (this.hp <= 0) {
+            this.die();
+        }
+    }
+
+    die() {
+        killCount++;
+        
+        lootDrops.push(new Loot(this.x, this.y, 'xp', this.xp));
+        
+        if (Math.random() < 0.05 && this.type !== 'boss') {
+             lootDrops.push(new Loot(this.x + 10, this.y, 'health', 30));
+        }
+
+        if (Math.random() < 0.01 && this.type !== 'boss') {
+             lootDrops.push(new Loot(this.x - 10, this.y, 'magnet', 0));
+        }
+        
+        if (player.classKey === 'necro') {
+            // Capture death coordinates for walking animation
+            let soul = { type: this.type, maxHp: this.maxHp, isBoss: this.type === 'boss', x: this.x, y: this.y };
+            
+            if (manualSummon) {
+                // Collect Soul
+                player.pendingSummons.push(soul);
+                updateSoulUI();
+            } else {
+                // Auto Summon
+                if (this.type === 'boss') {
+                    createFloatingText("BOSS RESURRECTED", this.x, this.y, "#a855f7");
+                    // Spawn at death location
+                    minions.push(new Minion(this.x, this.y, player, true));
+                    gameState = 'VICTORY'; 
+                    setTimeout(() => document.getElementById('victoryScreen').classList.remove('hidden'), 2000);
+                }
+                else if (Math.random() < 1.0) { 
+                    spawnMinionFromSoul(soul);
+                }
+            }
+        } 
+        
+        if (this.type === 'boss') {
+             gameState = 'VICTORY';
+             document.getElementById('victoryScreen').classList.remove('hidden');
+        }
+        
+        this.markedForDeletion = true;
+    }
+
+    draw(ctx) {
+        let img = null;
+        let sSize = 16;
+        
+        if (this.type === 'wolf') img = GLOBAL_SPRITES.slime_green; // Weak = Green Slime
+        else if (this.type === 'spider') img = GLOBAL_SPRITES.slime_red; // Aggro = Red Slime
+        else if (this.type === 'treant') img = GLOBAL_SPRITES.golem; // Strong = Golem
+        else if (this.type === 'boss') {
+            img = GLOBAL_SPRITES.dragon; // Boss = Dragon
+            sSize = 32;
+        }
+
+        if (img) {
+             let sx = this.frameX * sSize;
+             let sy = this.frameY * sSize;
+             let drawSize = sSize * SPRITE_SCALE;
+             
+             ctx.drawImage(
+                 img, 
+                 sx, sy, sSize, sSize, 
+                 this.x - drawSize/2, 
+                 this.y - drawSize/2, 
+                 drawSize, drawSize
+             );
+        } else {
+            // Fallback
+            ctx.fillStyle = '#f00';
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, 10, 0, Math.PI*2);
+            ctx.fill();
+        }
+        
+        if (this.poisonStacks > 0) {
+            ctx.shadowColor = '#22c55e';
+            ctx.shadowBlur = 10;
+        } else {
+            ctx.shadowBlur = 0;
+        }
+
+        // HP Bar
+        if (this.hp < this.maxHp) {
+            ctx.fillStyle = '#000';
+            ctx.fillRect(this.x - 10, this.y - 30, 20, 4);
+            ctx.fillStyle = '#f00';
+            ctx.fillRect(this.x - 10, this.y - 30, 20 * (this.hp / this.maxHp), 4);
+        }
+    }
+}
+
+class Projectile {
+    constructor(x, y, dx, dy, damage, type, owner) {
+        this.x = x;
+        this.y = y;
+        this.dx = dx;
+        this.dy = dy;
+        this.damage = damage;
+        this.speed = 10;
+        this.life = 60; 
+        this.type = type;
+        this.pierce = owner.pierce;
+        this.homing = owner.homing; 
+    }
+
+    update() {
+        if (this.homing) {
+            let closest = null;
+            let minDist = 400; 
+            for(let e of enemies) {
+                if(e.markedForDeletion) continue;
+                let d = Math.hypot(e.x - this.x, e.y - this.y);
+                if(d < minDist) { minDist = d; closest = e; }
+            }
+            if (closest) {
+                let angle = Math.atan2(closest.y - this.y, closest.x - this.x);
+                this.dx = Math.cos(angle);
+                this.dy = Math.sin(angle);
+            }
+        }
+
+        this.x += this.dx * this.speed;
+        this.y += this.dy * this.speed;
+        this.life--;
+
+        for (let e of enemies) {
+            if (e.markedForDeletion) continue;
+            let d = Math.hypot(e.x - this.x, e.y - this.y);
+            // Hitbox approx
+            if (d < (e.type === 'boss' ? 50 : 25)) {
+                e.takeDamage(this.damage, 'player');
+                
+                if (this.type === 'scout') {
+                    e.poisonStacks++;
+                }
+
+                if (this.pierce > 0) {
+                    this.pierce--;
+                } else {
+                    this.markedForDeletion = true;
+                }
+                
+                createEffect('hit', this.x, this.y);
+                break; 
+            }
+        }
+
+        if (this.life <= 0) this.markedForDeletion = true;
+    }
+
+    draw(ctx) {
+        ctx.fillStyle = player.baseColor;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, 4, 0, Math.PI*2);
+        ctx.fill();
+    }
+}
+
+class Loot {
+    constructor(x, y, type, value) {
+        this.x = x;
+        this.y = y;
+        this.type = type; 
+        this.value = value;
+        this.markedForDeletion = false;
+        this.magnetized = false;
+        
+        if (type === 'xp') { this.color = '#3b82f6'; this.size = 3; }
+        if (type === 'health') { this.color = '#ef4444'; this.size = 6; }
+        if (type === 'magnet') { this.color = '#eab308'; this.size = 6; }
+    }
+
+    update() {
+        let d = Math.hypot(player.x - this.x, player.y - this.y);
+        
+        if (this.magnetized) {
+             let angle = Math.atan2(player.y - this.y, player.x - this.x);
+             this.x += Math.cos(angle) * 20; 
+             this.y += Math.sin(angle) * 20;
+             if (d < 20) this.collect();
+             return;
+        }
+
+        // Slight drift to player if close but not pickup range
+        if (d < 200) {
+             this.x += (player.x - this.x) * 0.01;
+             this.y += (player.y - this.y) * 0.01;
+        }
+
+        if (d < player.pickupRange) {
+            this.x += (player.x - this.x) * 0.15; // Faster pickup
+            this.y += (player.y - this.y) * 0.15;
+            if (d < 20) {
+                this.collect();
+            }
+        }
+    }
+
+    collect() {
+        this.markedForDeletion = true;
+        
+        if (this.type === 'xp') {
+            xp += this.value;
+            checkLevelUp();
+        } else if (this.type === 'health') {
+            player.heal(this.value);
+        } else if (this.type === 'magnet') {
+            createFloatingText("MAGNET", player.x, player.y - 40, "#eab308");
+            lootDrops.forEach(l => {
+                if (l.type === 'xp') l.magnetized = true;
+            });
+        }
+    }
+
+    draw(ctx) {
+        ctx.fillStyle = this.color;
+        
+        if (this.type === 'xp') {
+            ctx.beginPath();
+            ctx.moveTo(this.x, this.y - 5);
+            ctx.lineTo(this.x + 5, this.y);
+            ctx.lineTo(this.x, this.y + 5);
+            ctx.lineTo(this.x - 5, this.y);
+            ctx.fill();
+        } else if (this.type === 'health') {
+             ctx.beginPath();
+             ctx.arc(this.x, this.y, 5, 0, Math.PI*2);
+             ctx.fill();
+             ctx.strokeStyle = '#fff';
+             ctx.lineWidth = 1;
+             ctx.stroke();
+             ctx.fillStyle = '#fff';
+             ctx.fillRect(this.x - 1, this.y - 1, 2, 2); 
+        } else if (this.type === 'magnet') {
+             ctx.beginPath();
+             ctx.arc(this.x, this.y, 6, 0, Math.PI*2);
+             ctx.fill();
+             ctx.fillStyle = '#000';
+             ctx.beginPath();
+             ctx.arc(this.x, this.y, 3, 0, Math.PI*2);
+             ctx.fill();
+        }
+    }
+}
+
+function createFloatingText(text, x, y, color) {
+    damageNumbers.push({
+        text: text,
+        x: x,
+        y: y,
+        life: 30,
+        color: color
+    });
+}
+
+function createEffect(type, x, y, radius) {
+    if (type === 'shockwave') {
+        particles.push({type: 'shockwave', x:x, y:y, r: 10, maxR: radius, life: 20});
+    } else if (type === 'hit') {
+        for(let i=0; i<3; i++) {
+            particles.push({
+                type: 'spark', 
+                x:x, y:y, 
+                dx: (Math.random()-0.5)*5, 
+                dy: (Math.random()-0.5)*5, 
+                life: 10
+            });
+        }
+    } else if (type === 'shieldBreak') {
+        particles.push({type: 'ring', x:x, y:y, r: 20, maxR: 50, life: 30, color: '#0ea5e9'});
+    }
+}
+
+// --- CORE LOOPS ---
+
+function checkLevelUp() {
+    if (xp >= xpToNextLevel) {
+        level++;
+        xp -= xpToNextLevel;
+        xpToNextLevel = Math.floor(xpToNextLevel * 1.2);
+        triggerLevelUp();
+    }
+}
+
+function gameLoop(timestamp) {
+    if (gameState !== 'PLAYING') return;
+    
+    const deltaTime = timestamp - lastTime;
+    
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    ctx.save();
+    ctx.translate(-camera.x, -camera.y);
+    
+    ctx.fillStyle = '#111';
+    ctx.fillRect(camera.x, camera.y, canvas.width, canvas.height);
+    
+    ctx.strokeStyle = '#222';
+    ctx.lineWidth = 1;
+    const startX = Math.floor(camera.x / TILE_SIZE) * TILE_SIZE;
+    const startY = Math.floor(camera.y / TILE_SIZE) * TILE_SIZE;
+    
+    for (let x = startX; x < camera.x + canvas.width; x += TILE_SIZE) {
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, WORLD_HEIGHT); ctx.stroke();
+    }
+    for (let y = startY; y < camera.y + canvas.height; y += TILE_SIZE) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(WORLD_WIDTH, y); ctx.stroke();
+    }
+    
+    ctx.strokeStyle = '#500';
+    ctx.lineWidth = 5;
+    ctx.strokeRect(0,0, WORLD_WIDTH, WORLD_HEIGHT);
+
+    player.update();
+    player.draw(ctx);
+
+    minions.forEach((m, i) => { 
+        if(m.markedForDeletion) minions.splice(i, 1);
+        else { m.update(i, minions.length); m.draw(ctx); }
+    });
+
+    enemies.forEach((e, index) => {
+        if (e.markedForDeletion) enemies.splice(index, 1);
+        else {
+            e.update();
+            e.draw(ctx);
+        }
+    });
+
+    projectiles.forEach((p, index) => {
+        if (p.markedForDeletion) projectiles.splice(index, 1);
+        else {
+            p.update();
+            p.draw(ctx);
+        }
+    });
+
+    lootDrops.forEach((l, index) => {
+        if (l.markedForDeletion) lootDrops.splice(index, 1);
+        else {
+            l.update();
+            l.draw(ctx);
+        }
+    });
+
+    particles.forEach((p, i) => {
+        p.life--;
+        if (p.life <= 0) particles.splice(i, 1);
+        else {
+            if (p.type === 'shockwave') {
+                p.r += (p.maxR - p.r) * 0.2;
+                ctx.strokeStyle = `rgba(255,255,255,${p.life/20})`;
+                ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2); ctx.stroke();
+            } else if (p.type === 'spark') {
+                p.x += p.dx; p.y += p.dy;
+                ctx.fillStyle = `rgba(255,200,0,${p.life/10})`;
+                ctx.fillRect(p.x, p.y, 2, 2);
+            } else if (p.type === 'ring') {
+                p.r += 2;
+                ctx.strokeStyle = p.color;
+                ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2); ctx.stroke();
+            } else if (p.type === 'heal') {
+                p.y += p.dy;
+                ctx.fillStyle = `rgba(34, 197, 94, ${p.life/40})`;
+                ctx.fillRect(p.x, p.y, 3, 3);
+            }
+        }
+    });
+
+    damageNumbers.forEach((d, i) => {
+        d.y -= 0.5;
+        d.life--;
+        if (d.life <= 0) damageNumbers.splice(i, 1);
+        else {
+            ctx.fillStyle = d.color;
+            ctx.font = 'bold 12px Arial';
+            ctx.fillText(d.text, d.x, d.y);
+        }
+    });
+
+    ctx.restore();
+
+    spawnTimer++;
+    // UPDATED SMOOTHER SPAWN RATE (Slower Pace): 
+    // Start 4s (240 frames) -> Mid 1.5s (90 frames) -> Fast 0.5s (30 frames)
+    let spawnRate = Math.max(30, 240 - (gameTime / 60)); 
+    
+    if (spawnTimer > spawnRate) {
+        spawnEnemyWave(); 
+        spawnTimer = 0;
+    }
+
+    gameTime++;
+    updateHUD();
+
+    // UPDATED: Boss timer 3 minutes (10800 frames at 60fps)
+    if (!bossDefeated && gameTime === 10800) { 
+        enemies.push(new Enemy('boss'));
+        createFloatingText("BOSS INCOMING", player.x, player.y - 50, "#ff0000");
+    }
+
+    lastTime = timestamp;
+    requestAnimationFrame(gameLoop);
+}
+
+function spawnEnemyWave() {
+    if (enemies.length > 200) return; // Reduced max cap
+
+    // Determine type for this wave
+    const r = Math.random();
+    let type = 'wolf';
+    if (r < 0.3) type = 'treant';
+    else if (r < 0.6) type = 'spider';
+
+    // Pick a spawn center just outside camera
+    let spawnX, spawnY;
+    if (Math.random() < 0.5) {
+        spawnX = Math.random() < 0.5 ? camera.x - 100 : camera.x + canvas.width + 100;
+        spawnY = camera.y + Math.random() * canvas.height;
+    } else {
+        spawnX = camera.x + Math.random() * canvas.width;
+        spawnY = Math.random() < 0.5 ? camera.y - 100 : camera.y + canvas.height + 100;
+    }
+
+    // Spawn CLUSTER
+    // Number of enemies in cluster increases slightly with time
+    let clusterSize = 3 + Math.floor(gameTime / 3600); // +1 every minute
+    
+    for(let i=0; i<clusterSize; i++) {
+        // Random offset from cluster center
+        let offsetX = (Math.random() - 0.5) * 60;
+        let offsetY = (Math.random() - 0.5) * 60;
+        enemies.push(new Enemy(type, spawnX + offsetX, spawnY + offsetY));
+    }
+}
+
+function updateHUD() {
+    const hpPct = (player.hp / player.maxHp) * 100;
+    document.getElementById('hpBar').style.width = `${Math.max(0, hpPct)}%`;
+    
+    const xpPct = (xp / xpToNextLevel) * 100;
+    document.getElementById('xpBar').style.width = `${xpPct}%`;
+    
+    document.getElementById('lvlDisplay').innerText = `LVL ${level}`;
+    document.getElementById('killCount').innerText = killCount;
+
+    let seconds = Math.floor(gameTime / 60);
+    let minutes = Math.floor(seconds / 60);
+    seconds = seconds % 60;
+    document.getElementById('timerDisplay').innerText = 
+        `${minutes.toString().padStart(2,'0')}:${seconds.toString().padStart(2,'0')}`;
+
+    if (player.classKey === 'tank') {
+        const container = document.getElementById('shieldContainer');
+        container.innerHTML = '';
+        for(let i=0; i<player.shieldLayers; i++) {
+            container.innerHTML += `<div class="shield-pip"></div>`;
+        }
+    }
+
+    if (player.classKey === 'necro') {
+        document.getElementById('minionCountDisplay').innerText = `Thralls: ${minions.length}/${player.commandLimit}`;
+        if(minions.length >= 20) {
+            document.getElementById('formationControls').classList.remove('hidden');
+        } else {
+            document.getElementById('formationControls').classList.add('hidden');
+        }
+    }
+}
+
+// --- CARD SYSTEM & LEVEL UP ---
+
+const UPGRADES = [
+    { id: 'dmg', name: "Sharpen Blade", type: 'stat', stat: 'damage', val: 5, rarity: 'common', desc: "+5 Damage" },
+    { id: 'spd', name: "Wind Walk", type: 'stat', stat: 'speed', val: 0.5, rarity: 'common', desc: "+0.5 Move Speed" },
+    { id: 'hp', name: "Vitality", type: 'stat', stat: 'maxHp', val: 20, rarity: 'common', desc: "+20 Max Health" },
+    { id: 'regen', name: "Troll Blood", type: 'stat', stat: 'hp', val: 10, rarity: 'common', desc: "Instant +10 HP Heal" }, 
+    { id: 'magnet', name: "Loot Magnet", type: 'stat', stat: 'pickupRange', val: 30, rarity: 'common', desc: "+30 Pickup Range" }, 
+    { id: 'luck', name: "Clover", type: 'stat', stat: 'critChance', val: 0.05, rarity: 'rare', desc: "+5% Crit Chance" }, 
+
+    { id: 'cdr', name: "Quick Hands", type: 'stat', stat: 'maxCooldown', val: -5, rarity: 'rare', desc: "-5 Frames Attack Cooldown" },
+    { id: 'pierce', name: "Drill Tip", type: 'stat', stat: 'pierce', val: 1, rarity: 'epic', desc: "+1 Projectile Pierce" },
+    { id: 'proj', name: "Multishot", type: 'stat', stat: 'projectileCount', val: 1, rarity: 'legendary', desc: "+1 Projectile" },
+    
+    { id: 'oracle', name: "Oracle's Eye", type: 'special', rarity: 'legendary', desc: "Unlocks the 5th Card Slot (Fate)" },
+    { id: 'homing', name: "Soul Seeker", type: 'special', rarity: 'legendary', desc: "Projectiles home in on enemies" }, 
+
+    { id: 'fire', class: 'mage', name: "Fire Attunement", type: 'element', element: 'fire', rarity: 'common', desc: "Add Fire DMG. Collect 3 for Ult." },
+    { id: 'ice', class: 'mage', name: "Ice Attunement", type: 'element', element: 'ice', rarity: 'common', desc: "Add Slow. Collect 3 for Ult." },
+    { id: 'shield_max', class: 'tank', name: "Fortress", type: 'stat', stat: 'maxShieldLayers', val: 1, rarity: 'legendary', desc: "+1 Max Shield Layer" },
+    { id: 'poison_tick', class: 'scout', name: "Neurotoxin", type: 'special', rarity: 'epic', desc: "Poison deals damage faster" },
+    
+    // Necro Cards
+    { id: 'army_cap_common', class: 'necro', name: "Undead", type: 'stat', stat: 'commandLimit', val: 5, rarity: 'common', desc: "+5 Max Minions" },
+    { id: 'army_cap_rare', class: 'necro', name: "Legion", type: 'stat', stat: 'commandLimit', val: 15, rarity: 'rare', desc: "+15 Max Minions" },
+    { id: 'army_cap_epic', class: 'necro', name: "Commander", type: 'stat', stat: 'commandLimit', val: 30, rarity: 'epic', desc: "+30 Max Minions" },
+    { id: 'army_cap_legendary', class: 'necro', name: "Undead Horde", type: 'stat', stat: 'commandLimit', val: 50, rarity: 'legendary', desc: "+50 Max Minions" },
+    { id: 'minion_dmg_common', class: 'necro', name: "Dark Power", type: 'stat', stat: 'minionDmgMod', val: 0.5, rarity: 'common', desc: "+5 Minion Damage" }, // Approx scaling
+    { id: 'minion_dmg_rare', class: 'necro', name: "Unholy Strength", type: 'stat', stat: 'minionDmgMod', val: 1.0, rarity: 'rare', desc: "+10 Minion Damage" },
+];
+
+function triggerLevelUp() {
+    gameState = 'LEVEL_UP';
+    document.getElementById('levelUpScreen').classList.remove('hidden');
+    generateCards();
+}
+
+function generateCards() {
+    const container = document.getElementById('cardsContainer');
+    container.innerHTML = '';
+
+    const cardCount = oracleEyeUnlocked ? 5 : 4;
+    const selectedIds = new Set(); 
+
+    for (let i = 0; i < cardCount; i++) {
+        let isFateSlot = (i === 4);
+        let rarityRoll = Math.random();
+        let rarity = 'common';
+
+        if (isFateSlot) {
+            if (rarityRoll < 0.1) rarity = 'legendary';
+            else if (rarityRoll < 0.5) rarity = 'epic';
+            else rarity = 'rare';
+        } else {
+            if (rarityRoll < 0.05) rarity = 'legendary';
+            else if (rarityRoll < 0.15) rarity = 'epic';
+            else if (rarityRoll < 0.40) rarity = 'rare';
+            else rarity = 'common';
+        }
+
+        let validCards = UPGRADES.filter(c => {
+            if (c.class && c.class !== player.classKey) return false; 
+            if (c.id === 'oracle' && oracleEyeUnlocked) return false; 
+            if (c.id === 'homing' && player.homing) return false; 
+            if (selectedIds.has(c.id)) return false; 
+            return c.rarity === rarity;
+        });
+
+        // Fallback Logic for empty cards
+        if (validCards.length === 0) {
+            rarity = 'common';
+            validCards = UPGRADES.filter(c => {
+                if (c.class && c.class !== player.classKey) return false;
+                if (c.id === 'oracle' && oracleEyeUnlocked) return false;
+                if (c.id === 'homing' && player.homing) return false; 
+                if (selectedIds.has(c.id)) return false;
+                return c.rarity === rarity;
+            });
+        }
+        
+        let cardData;
+        if (validCards.length > 0) {
+            cardData = validCards[Math.floor(Math.random() * validCards.length)];
+        } else {
+            // SAFETY FALLBACK: Create a dynamic card if literally everything is exhausted (impossible currently but safe)
+            cardData = { id: 'fallback_dmg', name: "Limit Break", type: 'stat', stat: 'damage', val: 2, rarity: 'common', desc: "+2 Damage (Overflow)" };
+        }
+
+        if (cardData) {
+            selectedIds.add(cardData.id);
+            createCardElement(cardData, isFateSlot, container);
+        }
+    }
+}
+
+function createCardElement(data, isFate, container) {
+    const el = document.createElement('div');
+    el.className = `card rarity-${data.rarity} ${isFate ? 'fate-slot' : ''}`;
+    el.innerHTML = `
+        <div class="font-bold text-${getColorForRarity(data.rarity)}-400 text-center mb-2">${data.name}</div>
+        <div class="text-xs text-gray-400 text-center flex-grow flex items-center justify-center">${data.desc}</div>
+        <div class="text-[10px] text-gray-600 text-center uppercase mt-2">${data.rarity}</div>
+    `;
+    el.onclick = () => selectUpgrade(data);
+    container.appendChild(el);
+}
+
+function getColorForRarity(r) {
+    if (r === 'common') return 'gray';
+    if (r === 'rare') return 'blue';
+    if (r === 'epic') return 'purple';
+    if (r === 'legendary') return 'yellow';
+}
+
+function selectUpgrade(data) {
+    if (data.type === 'stat') {
+        player[data.stat] += data.val;
+        if (data.stat === 'maxHp') player.hp += data.val;
+    } else if (data.type === 'special') {
+        if (data.id === 'oracle') {
+            oracleEyeUnlocked = true;
+            createFloatingText("FATE UNLOCKED", player.x, player.y - 50, "#eab308");
+        } else if (data.id === 'poison_tick') {
+            player.poisonTickRate = 30; 
+        } else if (data.id === 'homing') {
+            player.homing = true;
+            createFloatingText("HOMING ENABLED", player.x, player.y - 50, "#eab308");
+        }
+    } else if (data.type === 'element') {
+        player.elements[data.element]++;
+        if (player.elements[data.element] >= 3 && !player.cataclysmUnlocked) {
+            player.cataclysmUnlocked = true;
+            createFloatingText("ULTIMATE READY", player.x, player.y - 50, "#3b82f6");
+            player.projectileCount += 5; 
+        }
+    }
+
+    document.getElementById('levelUpScreen').classList.add('hidden');
+    gameState = 'PLAYING';
+    lastTime = performance.now(); 
+    requestAnimationFrame(gameLoop);
+}
+
+function endGame() {
+    gameState = 'GAME_OVER';
+    let seconds = Math.floor(gameTime / 60);
+    let minutes = Math.floor(seconds / 60);
+    seconds = seconds % 60;
+    document.getElementById('deathTime').innerText = 
+        `${minutes.toString().padStart(2,'0')}:${seconds.toString().padStart(2,'0')}`;
+    document.getElementById('gameOverScreen').classList.remove('hidden');
+}
+
+</script>
+</body>
+</html>
